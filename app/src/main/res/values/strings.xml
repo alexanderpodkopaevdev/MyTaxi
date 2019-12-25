@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">Super TAXI</string>
+    <string name="i_passenger">Я пассажир</string>
+    <string name="i_driver">Я водитель</string>
+    <string name="e_mail">E-mail</string>
+    <string name="name">Имя</string>
+    <string name="password">Пароль</string>
+    <string name="password_confirm">Повторите пароль</string>
+    <string name="sign_up">Зарегистрироваться</string>
+    <string name="login">Войти</string>
+    <string name="press_to_login">Уже зарегистрированы?\nНажмите для входа</string>
+    <string name="press_to_sign_up">Уже зарегистрированы?\nНажмите для входа</string>
+
+
+
+</resources>
