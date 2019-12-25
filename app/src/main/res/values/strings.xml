@@ -10,7 +10,7 @@
     <string name="login">Войти</string>
     <string name="press_to_login">Уже зарегистрированы?\nНажмите для входа</string>
     <string name="press_to_sign_up">Уже зарегистрированы?\nНажмите для входа</string>
-
+    <string name="title_activity_driver_maps">Map</string>
 
 
 </resources>
