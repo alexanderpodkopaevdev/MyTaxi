@@ -25,7 +25,6 @@ class PassengerSignInActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_passenger_sign_in)
-        FirebaseAuth.getInstance().signOut()
         auth = FirebaseAuth.getInstance()
         updateUI(auth.currentUser)
         btnLoginSignUp.setOnClickListener {
@@ -50,7 +49,7 @@ class PassengerSignInActivity : AppCompatActivity() {
 
     private fun updateUI(currentUser: FirebaseUser?) {
         if (currentUser != null) {
-            startActivity(Intent(this, PassengerMap::class.java))
+            startActivity(Intent(this, PassengerMapsActivity::class.java))
         }
     }
 

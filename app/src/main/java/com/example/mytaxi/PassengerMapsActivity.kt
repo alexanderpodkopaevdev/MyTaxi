@@ -7,7 +7,6 @@ import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.location.Location
 import android.net.Uri
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
@@ -15,31 +14,31 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.firebase.geofire.GeoFire
 import com.firebase.geofire.GeoLocation
+import com.firebase.geofire.GeoQueryEventListener
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
-
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.OnMapReadyCallback
 import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.gms.tasks.OnSuccessListener
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.FirebaseDatabase
-import kotlinx.android.synthetic.main.activity_driver_maps.*
-import java.text.DateFormat
-import java.util.*
+import com.google.firebase.database.*
+import com.google.firebase.database.ktx.getValue
+import kotlinx.android.synthetic.main.activity_passenger_maps.*
 
-class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
+class PassengerMapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private lateinit var mMap: GoogleMap
 
@@ -52,10 +51,18 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private var locationCallback: LocationCallback? = null
     private var currentLocation: Location? = null
     private var isLocationUpdatesActive = false
+    private var radius: Double = 1.0
+    private var isDriverFound = false
+    private lateinit var nerestDriverId: String
+    private lateinit var drivers: DatabaseReference
+    private lateinit var nearestDriverLocation: DatabaseReference
+    private var driverMarker: Marker? = null
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_driver_maps)
+        setContentView(R.layout.activity_passenger_maps)
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         val mapFragment = supportFragmentManager
             .findFragmentById(R.id.map) as SupportMapFragment
@@ -69,8 +76,99 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         startLocationUpdates()
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        drivers = FirebaseDatabase.getInstance().reference.child("driversLoc")
+        btnBookTaxi.setOnClickListener {
+            btnBookTaxi.text = getString(R.string.find_taxi)
+            getNerestTaxi()
+        }
 
     }
+
+    private fun getNerestTaxi() {
+        val geoFire = GeoFire(drivers)
+        if (currentLocation != null) {
+            val geoQuery = geoFire.queryAtLocation(
+                GeoLocation(
+                    currentLocation!!.latitude,
+                    currentLocation!!.longitude
+                ), radius
+            )
+            geoQuery.removeAllListeners()
+            geoQuery.addGeoQueryEventListener(object : GeoQueryEventListener {
+                override fun onGeoQueryReady() {
+                    if (!isDriverFound) {
+                        radius++
+                        getNerestTaxi()
+                    }
+                }
+
+                override fun onKeyEntered(key: String, location: GeoLocation?) {
+                    if (!isDriverFound) {
+                        isDriverFound = true
+                        nerestDriverId = key
+                        getNerestDriverLocation()
+                    }
+                }
+
+                override fun onKeyMoved(key: String?, location: GeoLocation?) {
+                    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                }
+
+                override fun onKeyExited(key: String?) {
+                    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                }
+
+                override fun onGeoQueryError(error: DatabaseError?) {
+                    TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                }
+
+                fun getNerestDriverLocation() {
+                    nearestDriverLocation =
+                        FirebaseDatabase.getInstance().reference.child("driversLoc").child(nerestDriverId).child("l")
+                    nearestDriverLocation.addValueEventListener(object : ValueEventListener {
+                        override fun onCancelled(p0: DatabaseError) {
+                            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                        }
+
+                        override fun onDataChange(p0: DataSnapshot) {
+                            /*val td : Map<String,Object> = p0.getValue()
+                            val list = td.values()
+                            val latitudeStr = list?.get(0)?.toString()
+                            val lontidudeSrt = list?.get(1)?.toString()*/
+                            val latitudeStr = p0.child("0").value as Double
+                            val lontidudeSrt = p0.child("1").value as Double
+
+                            val latitude = latitudeStr?.toDouble()
+                            val lontidude = lontidudeSrt?.toDouble()
+                            var driverLatLng: LatLng? = null
+                            if (latitude != null && lontidude != null) {
+                                driverLatLng = LatLng(latitude, lontidude)
+                                    driverMarker?.remove()
+                                val driverLocation = Location("").apply {
+                                    setLatitude(latitude)
+                                    setLongitude(lontidude)
+                                }
+                                val distanceToDriver = driverLocation.distanceTo(currentLocation)
+                                btnBookTaxi.text = "До водителя $distanceToDriver"
+                                driverMarker =
+                                    mMap.addMarker(
+                                        MarkerOptions().position(driverLatLng).title(
+                                            "Водитель здесь"
+                                        )
+                                    )
+
+
+                            }
+
+                        }
+                    })
+                }
+            })
+        }
+
+
+    }
+
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
@@ -80,13 +178,13 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
         when (item?.itemId) {
             R.id.signOut -> {
-                val driverUserId = FirebaseAuth.getInstance().currentUser?.uid
-                val drivers = FirebaseDatabase.getInstance().reference.child("driversLoc")
-                val geoFire = GeoFire(drivers)
-                geoFire.removeLocation(driverUserId)
+                val passengerUserId = FirebaseAuth.getInstance().currentUser?.uid
+                val passenger = FirebaseDatabase.getInstance().reference.child("passengersLoc")
+                val geoFire = GeoFire(passenger)
+                geoFire.removeLocation(passengerUserId)
 
                 FirebaseAuth.getInstance().signOut()
-                val intent = Intent(this@DriverMapsActivity, ChooseModeActivity::class.java)
+                val intent = Intent(this@PassengerMapsActivity, ChooseModeActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 startActivity(intent)
                 finish()
@@ -108,9 +206,9 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         mMap = googleMap
 
         // Add a marker in Sydney and move the camera
-        val driverLocation = LatLng(-34.0, 151.0)
-        mMap.addMarker(MarkerOptions().position(driverLocation).title("Driver Location"))
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(driverLocation))
+        val passengerLocation = LatLng(-34.0, 151.0)
+        mMap.addMarker(MarkerOptions().position(passengerLocation).title("Passenger Location"))
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(passengerLocation))
     }
 
     private fun stopLocationUpdates() {
@@ -128,16 +226,16 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
         isLocationUpdatesActive = true
 
         settingsClient!!.checkLocationSettings(locationSettingsRequest)
-            .addOnSuccessListener(this@DriverMapsActivity,
+            .addOnSuccessListener(this@PassengerMapsActivity,
                 OnSuccessListener {
                     if (ActivityCompat.checkSelfPermission(
-                            this@DriverMapsActivity,
+                            this@PassengerMapsActivity,
                             Manifest.permission.ACCESS_FINE_LOCATION
                         ) !=
                         PackageManager.PERMISSION_GRANTED &&
                         ActivityCompat
                             .checkSelfPermission(
-                                this@DriverMapsActivity,
+                                this@PassengerMapsActivity,
                                 Manifest.permission.ACCESS_COARSE_LOCATION
                             ) !=
                         PackageManager.PERMISSION_GRANTED
@@ -163,7 +261,7 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                         val resolvableApiException =
                             e as ResolvableApiException
                         resolvableApiException.startResolutionForResult(
-                            this@DriverMapsActivity,
+                            this@PassengerMapsActivity,
                             CHECK_SETTINGS_CODE
                         )
                     } catch (sie: IntentSender.SendIntentException) {
@@ -172,7 +270,7 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                     LocationSettingsStatusCodes.SETTINGS_CHANGE_UNAVAILABLE -> {
                         val message = "Adjust location settings on your device"
                         Toast.makeText(
-                            this@DriverMapsActivity, message,
+                            this@PassengerMapsActivity, message,
                             Toast.LENGTH_LONG
                         ).show()
                         isLocationUpdatesActive = false
@@ -228,14 +326,17 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun updateLocationUi() {
         if (currentLocation != null) {
-            val currentLatLng = LatLng(currentLocation!!.latitude,currentLocation!!.longitude)
+            val currentLatLng = LatLng(currentLocation!!.latitude, currentLocation!!.longitude)
             mMap.moveCamera(CameraUpdateFactory.newLatLng(currentLatLng))
             mMap.animateCamera(CameraUpdateFactory.zoomTo(12f))
-            mMap.addMarker(MarkerOptions().position(currentLatLng).title("Driver Location"))
-            val driverUserId = FirebaseAuth.getInstance().currentUser?.uid
-            val drivers = FirebaseDatabase.getInstance().reference.child("driversLoc")
-            val geoFire = GeoFire(drivers)
-            geoFire.setLocation(driverUserId, GeoLocation(currentLocation!!.latitude,currentLocation!!.longitude))
+            mMap.addMarker(MarkerOptions().position(currentLatLng).title("Passenger Location"))
+            val passengerUserId = FirebaseAuth.getInstance().currentUser?.uid
+            val passengers = FirebaseDatabase.getInstance().reference.child("passengersLoc")
+            val geoFire = GeoFire(passengers)
+            geoFire.setLocation(
+                passengerUserId,
+                GeoLocation(currentLocation!!.latitude, currentLocation!!.longitude)
+            )
 
         }
     }
@@ -265,7 +366,7 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
     private fun requestLocationPermission() {
         val shouldProvideRationale =
             ActivityCompat.shouldShowRequestPermissionRationale(
-                this@DriverMapsActivity,
+                this@PassengerMapsActivity,
                 Manifest.permission.ACCESS_FINE_LOCATION
             )
         if (shouldProvideRationale) {
@@ -275,7 +376,7 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
                 "OK",
                 View.OnClickListener {
                     ActivityCompat.requestPermissions(
-                        this@DriverMapsActivity, arrayOf(
+                        this@PassengerMapsActivity, arrayOf(
                             Manifest.permission.ACCESS_FINE_LOCATION
                         ),
                         REQUEST_LOCATION_PERMISSION
@@ -284,7 +385,7 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
             )
         } else {
             ActivityCompat.requestPermissions(
-                this@DriverMapsActivity, arrayOf(
+                this@PassengerMapsActivity, arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION
                 ),
                 REQUEST_LOCATION_PERMISSION
@@ -343,7 +444,7 @@ class DriverMapsActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun checkLocationPermission(): Boolean {
         val permissionState = ActivityCompat.checkSelfPermission(
-            this@DriverMapsActivity,
+            this@PassengerMapsActivity,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
         Log.d("MainActivity", "checkLocationPermission permissionState $permissionState")

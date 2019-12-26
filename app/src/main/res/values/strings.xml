@@ -11,6 +11,11 @@
     <string name="press_to_login">Уже зарегистрированы?\nНажмите для входа</string>
     <string name="press_to_sign_up">Уже зарегистрированы?\nНажмите для входа</string>
     <string name="title_activity_driver_maps">Map</string>
+    <string name="sign_out">Выйти</string>
+    <string name="title_activity_passenger_maps">Map</string>
+    <string name="choose_taxi">Заказать такси</string>
+    <string name="find_taxi">Ищем машину...</string>
+
 
 
 </resources>
